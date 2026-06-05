@@ -716,32 +716,47 @@ with col_left:
     # ── Upload ──────────────────────────────────────────────────────────────
     st.markdown('<div class="card">', unsafe_allow_html=True)
 
-    tab_upload, tab_camera = st.tabs(["📁 Upload File", "📸 Camera"])
+    tab_upload, tab_camera = st.tabs(["📁 Upload Pages", "📸 Camera"])
 
     with tab_upload:
-        uploaded = st.file_uploader(
+        uploaded_files = st.file_uploader(
             "upload",
             type=["png", "jpg", "jpeg", "bmp", "tiff", "tif"],
+            accept_multiple_files=True,
             label_visibility="collapsed",
         )
 
     with tab_camera:
         camera_shot = st.camera_input("Take a photo", label_visibility="collapsed")
+        if camera_shot:
+            if "camera_shots" not in st.session_state:
+                st.session_state.camera_shots = []
+            if camera_shot not in st.session_state.camera_shots:
+                st.session_state.camera_shots = [camera_shot]
+        cam_files = st.session_state.get("camera_shots", [])
 
-    # Use whichever source has an image
-    image_source = uploaded or camera_shot
-    image_name = uploaded.name if uploaded else "camera_capture.jpg"
+    # Combine sources into a single list
+    all_files = uploaded_files + cam_files if uploaded_files else cam_files
+    total_pages = len(all_files)
 
-    if image_source:
-        st.image(image_source, use_container_width=True,
-                 caption=f"📎 {image_name}")
+    if total_pages > 0:
+        if total_pages == 1:
+            st.image(all_files[0], use_container_width=True,
+                     caption=f"📎 {getattr(all_files[0], 'name', 'camera_capture.jpg')}")
+        else:
+            st.markdown(f"**{total_pages} pages selected:**")
+            thumb_cols = st.columns(min(total_pages, 3))
+            for i, f in enumerate(all_files):
+                with thumb_cols[i % 3]:
+                    st.image(f, use_container_width=True,
+                             caption=f"P{i+1}")
     else:
         st.markdown("""
         <div class="upload-hint">
             <div class="icon">📄</div>
-            <p><b>Upload a file or take a photo</b></p>
+            <p><b>Upload one or multiple pages</b></p>
             <p style="color:#6366f1;font-size:0.8rem;margin-top:6px;">
-            PNG · JPG · JPEG · BMP · TIFF
+            Select multiple files at once for multi-page scan
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -767,11 +782,12 @@ with col_left:
     use_gemini = engine.startswith("✨")
 
     st.markdown("<br>", unsafe_allow_html=True)
+    btn_label = f"▶  Convert {total_pages} Page{'s' if total_pages != 1 else ''}" if total_pages > 0 else "▶  Convert to Text"
     convert_btn = st.button(
-        "▶  Convert to Text",
+        btn_label,
         type="primary",
         use_container_width=True,
-        disabled=(not image_source or (not use_gemini and not EASYOCR_AVAILABLE)),
+        disabled=(total_pages == 0 or (not use_gemini and not EASYOCR_AVAILABLE)),
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -779,22 +795,24 @@ with col_left:
 with col_right:
 
     # ── Step indicator ───────────────────────────────────────────────────────
-    s1 = "done" if image_source else ("active" if not image_source else "")
-    s2 = "active" if image_source and not st.session_state.extracted_text else ("done" if st.session_state.extracted_text else "")
-    s3 = "done" if st.session_state.extracted_text else ("active" if image_source else "")
-    div1 = "done" if image_source else ""
+    has_images = total_pages > 0
+    s1   = "done" if has_images else "active"
+    s2   = "done" if st.session_state.extracted_text else ("active" if has_images else "")
+    s3   = "done" if st.session_state.extracted_text else ("active" if has_images else "")
+    div1 = "done" if has_images else ""
     div2 = "done" if st.session_state.extracted_text else ""
+    page_label = f"{total_pages} page{'s' if total_pages != 1 else ''}" if total_pages > 1 else "Upload / Capture"
 
     st.markdown(f"""
     <div class="steps-row">
         <div class="step">
             <div class="step-num {s1}">1</div>
-            <span class="step-label {'active' if not image_source else ''}">Upload / Capture</span>
+            <span class="step-label {'active' if not has_images else ''}">{page_label}</span>
         </div>
         <div class="step-divider {div1}"></div>
         <div class="step">
             <div class="step-num {s2}">2</div>
-            <span class="step-label {'active' if image_source and not st.session_state.extracted_text else ''}">Select Language</span>
+            <span class="step-label {'active' if has_images and not st.session_state.extracted_text else ''}">Select Language</span>
         </div>
         <div class="step-divider {div2}"></div>
         <div class="step">
@@ -805,28 +823,32 @@ with col_right:
     """, unsafe_allow_html=True)
 
     # ── No image uploaded ────────────────────────────────────────────────────
-    if not image_source:
+    if not has_images:
         st.session_state.use_easyocr_fallback = False
         st.session_state.extracted_text = ""
         st.markdown("""
         <div style="text-align:center;padding:80px 20px;">
             <div style="font-size:4rem;margin-bottom:16px;filter:grayscale(0.3);">🖼️</div>
-            <h3 style="color:#6366f1;margin:0 0 8px 0;font-weight:700;">No image yet</h3>
-            <p style="font-size:0.9rem;margin:0;color:#94a3b8;">Upload a file or take a photo to get started.</p>
+            <h3 style="color:#6366f1;margin:0 0 8px 0;font-weight:700;">No images yet</h3>
+            <p style="font-size:0.9rem;margin:0;color:#94a3b8;">Upload one or multiple pages, or take a photo.</p>
         </div>
         """, unsafe_allow_html=True)
 
     # ── EasyOCR fallback ─────────────────────────────────────────────────────
     elif st.session_state.use_easyocr_fallback:
-        with st.spinner("Running EasyOCR (offline)..."):
-            t0 = time.time()
-            text, err = run_easyocr(image_source.read(), lang)
-            elapsed = round(time.time() - t0, 2)
-        if err:
-            st.error(err)
-        else:
-            st.session_state.extracted_text = text
-            show_result_panel(text, f"EasyOCR · {elapsed}s")
+        all_texts = []
+        progress = st.progress(0)
+        for i, f in enumerate(all_files):
+            with st.spinner(f"EasyOCR — page {i+1}/{total_pages}..."):
+                text, err = run_easyocr(f.read(), lang)
+            if err:
+                st.error(err); break
+            all_texts.append(f"=== Page {i+1} ===\n{text}" if total_pages > 1 else text)
+            progress.progress((i + 1) / total_pages)
+        if all_texts:
+            combined = "\n\n".join(all_texts)
+            st.session_state.extracted_text = combined
+            show_result_panel(combined, f"EasyOCR · {total_pages}p")
         if st.button("← Try Gemini Again", use_container_width=False):
             st.session_state.use_easyocr_fallback = False
             st.session_state.exhausted_keys = set()
@@ -835,32 +857,42 @@ with col_right:
 
     # ── Convert triggered ────────────────────────────────────────────────────
     elif convert_btn:
-        image_bytes = image_source.read()
+        all_texts = []
+        t0 = time.time()
+        progress = st.progress(0)
+        status = st.empty()
+        failed = False
 
-        if use_gemini:
-            with st.spinner("🤖 Gemini AI is reading your document..."):
-                t0 = time.time()
-                text, err = run_gemini(image_bytes, image_name)
-                elapsed = round(time.time() - t0, 2)
+        for i, f in enumerate(all_files):
+            fname = getattr(f, "name", f"page_{i+1}.jpg")
+            status.markdown(f"🤖 Processing **page {i+1} of {total_pages}**...")
+            img_bytes = f.read()
 
-            if err == "ALL_KEYS_EXHAUSTED":
-                show_quota_panel()
-            elif err:
-                st.error(err)
+            if use_gemini:
+                text, err = run_gemini(img_bytes, fname)
+                if err == "ALL_KEYS_EXHAUSTED":
+                    status.empty(); progress.empty()
+                    show_quota_panel(); failed = True; break
+                elif err:
+                    st.error(err); failed = True; break
             else:
-                st.session_state.extracted_text = text
-                st.balloons()
-                show_result_panel(text, f"Gemini AI · {elapsed}s")
-        else:
-            with st.spinner("🔍 EasyOCR is scanning your image..."):
-                t0 = time.time()
-                text, err = run_easyocr(image_bytes, lang)
-                elapsed = round(time.time() - t0, 2)
-            if err:
-                st.error(err)
-            else:
-                st.session_state.extracted_text = text
-                show_result_panel(text, f"EasyOCR · {elapsed}s")
+                text, err = run_easyocr(img_bytes, lang)
+                if err:
+                    st.error(err); failed = True; break
+
+            all_texts.append(f"=== Page {i+1} ===\n{text}" if total_pages > 1 else text)
+            progress.progress((i + 1) / total_pages)
+
+        status.empty()
+        progress.empty()
+
+        if not failed and all_texts:
+            elapsed = round(time.time() - t0, 2)
+            combined = "\n\n".join(all_texts)
+            st.session_state.extracted_text = combined
+            engine_label = f"Gemini AI · {total_pages}p · {elapsed}s" if use_gemini else f"EasyOCR · {total_pages}p · {elapsed}s"
+            st.balloons()
+            show_result_panel(combined, engine_label)
 
     # ── Waiting for convert ──────────────────────────────────────────────────
     elif st.session_state.extracted_text:
