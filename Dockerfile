@@ -15,8 +15,4 @@ COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 7860
 
-CMD bash -c "nginx && streamlit run app.py \
-    --server.port=8501 \
-    --server.address=0.0.0.0 \
-    --server.headless=true \
-    --browser.gatherUsageStats=false"
+CMD ["python3", "startup.py"]
