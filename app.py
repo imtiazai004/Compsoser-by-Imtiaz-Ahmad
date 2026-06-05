@@ -71,6 +71,17 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ── PWA manifest (enables browser install button) ─────────────────────────────
+st.markdown("""
+<link rel="manifest" href='data:application/manifest+json,{"name":"Composer - AI Document Scanner","short_name":"Composer","description":"AI-powered OCR tool","start_url":"/","display":"standalone","background_color":"#f5f6fa","theme_color":"#6366f1","icons":[{"src":"https://em-content.zobj.net/source/apple/391/page-facing-up_1f4c4.png","sizes":"192x192","type":"image/png"},{"src":"https://em-content.zobj.net/source/apple/391/page-facing-up_1f4c4.png","sizes":"512x512","type":"image/png"}]}'>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Composer">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#6366f1">
+<meta name="msapplication-TileColor" content="#6366f1">
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
 /* ── Global ── */
@@ -386,6 +397,93 @@ def copy_button(text):
     """, height=42)
 
 
+def pwa_install_button():
+    components.html("""
+    <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background: transparent; overflow: hidden; }
+    #install-btn {
+        display: none;
+        background: #6366f1;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 7px 16px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.2s;
+        align-items: center;
+        gap: 6px;
+    }
+    #install-btn:hover { background: #4f46e5; transform: translateY(-1px); }
+    #guide {
+        display: none;
+        background: #f0f4ff;
+        border: 1px solid #c7d2fe;
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 12.5px;
+        color: #374151;
+        margin-top: 8px;
+        line-height: 1.9;
+    }
+    </style>
+
+    <button id="install-btn" onclick="doInstall()">📲 Install App</button>
+    <div id="guide">
+        <b style="color:#4f46e5;">Install Composer on your device:</b><br>
+        🖥️ <b>Windows/Mac:</b> Click <b>⊕</b> icon in browser address bar<br>
+        📱 <b>iPhone (Safari):</b> Share → <b>"Add to Home Screen"</b><br>
+        📱 <b>Android (Chrome):</b> Menu → <b>"Add to Home Screen"</b>
+    </div>
+
+    <script>
+    let prompt = null;
+
+    function tryCapture(win) {
+        try {
+            win.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                prompt = e;
+                document.getElementById('install-btn').style.display = 'inline-flex';
+            });
+            win.addEventListener('appinstalled', () => {
+                document.getElementById('install-btn').style.display = 'none';
+            });
+        } catch(e) {}
+    }
+
+    tryCapture(window);
+    try { tryCapture(window.top); } catch(e) {}
+    try { tryCapture(window.parent); } catch(e) {}
+
+    // Show button always as fallback after 1.5s if not shown yet
+    setTimeout(() => {
+        const btn = document.getElementById('install-btn');
+        if (btn.style.display === 'none' || btn.style.display === '') {
+            btn.style.display = 'inline-flex';
+            btn.onclick = showGuide;
+        }
+    }, 1500);
+
+    function doInstall() {
+        if (prompt) {
+            prompt.prompt();
+            prompt.userChoice.then(() => { prompt = null; });
+        } else {
+            showGuide();
+        }
+    }
+
+    function showGuide() {
+        const g = document.getElementById('guide');
+        g.style.display = g.style.display === 'block' ? 'none' : 'block';
+    }
+    </script>
+    """, height=110)
+
+
 def show_result_panel(text, engine_label):
     words = len(text.split())
     chars = len(text)
@@ -470,6 +568,8 @@ Works completely offline.<br>
 
 with st.sidebar:
     st.markdown("### ⚙️ Settings")
+    pwa_install_button()
+    st.markdown("---")
     if st.button("🔑 Manage API Key", use_container_width=True):
         settings_dialog()
     st.markdown("---")
