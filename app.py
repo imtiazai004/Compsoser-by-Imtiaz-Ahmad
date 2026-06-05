@@ -433,63 +433,63 @@ def pwa_install_button():
     <style>
     *{box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif;margin:0;}
     body{background:transparent;overflow:hidden;}
-    #wrap{display:none;flex-direction:column;gap:8px;}
     #btn{
         background:linear-gradient(135deg,#6366f1,#8b5cf6);
         color:white;border:none;border-radius:10px;
         padding:10px 16px;font-weight:700;font-size:13px;
         cursor:pointer;width:100%;text-align:left;
         display:flex;align-items:center;gap:10px;
-        box-shadow:0 2px 12px rgba(99,102,241,0.35);
+        box-shadow:0 2px 12px rgba(99,102,241,0.3);
         transition:all 0.2s;
     }
-    #btn:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(99,102,241,0.45);}
+    #btn:hover{transform:translateY(-1px);}
     #guide{
+        display:none;
         background:#f0f4ff;border:1px solid #c7d2fe;
         border-radius:10px;padding:12px 14px;
-        font-size:12px;color:#374151;line-height:2;display:none;
+        font-size:12px;color:#374151;line-height:2.1;
+        margin-top:6px;
     }
     </style>
-    <div id="wrap">
-        <button id="btn" onclick="doInstall()">
-            <span style="font-size:1.4rem;">📲</span>
-            <span><b>Install App</b><br><span style="font-weight:400;opacity:0.85;font-size:11px;">Add to home screen</span></span>
-        </button>
-        <div id="guide">
-            🖥️ <b>PC/Mac:</b> Click <b>⊕</b> in address bar<br>
-            📱 <b>iPhone:</b> Safari → Share → <b>Add to Home Screen</b><br>
-            📱 <b>Android:</b> Chrome Menu → <b>Add to Home Screen</b>
-        </div>
+
+    <button id="btn" onclick="toggle()">
+        <span style="font-size:1.3rem;">📲</span>
+        <span>
+            <b>Install App</b><br>
+            <span style="font-weight:400;opacity:0.85;font-size:11px;">Add to home screen / desktop</span>
+        </span>
+    </button>
+    <div id="guide">
+        🖥️ <b>Windows/Mac (Chrome/Edge):</b><br>
+        &nbsp;&nbsp;Address bar mein <b>⊕</b> icon click karo<br><br>
+        📱 <b>Android (Chrome):</b><br>
+        &nbsp;&nbsp;Menu (⋮) → <b>Add to Home Screen</b><br><br>
+        🍎 <b>iPhone/iPad (Safari):</b><br>
+        &nbsp;&nbsp;Share <b>⬆</b> → <b>Add to Home Screen</b>
     </div>
+
     <script>
     let installPrompt = null;
-    const isStandalone = window.matchMedia('(display-mode:standalone)').matches || navigator.standalone;
+    const isInstalled = window.matchMedia('(display-mode:standalone)').matches || navigator.standalone;
+    if (isInstalled) document.getElementById('btn').style.display = 'none';
 
-    if (!isStandalone) {
-        document.getElementById('wrap').style.display = 'flex';
+    const tryCapture = w => {
+        try {
+            w.addEventListener('beforeinstallprompt', e => {
+                e.preventDefault(); installPrompt = e;
+            });
+        } catch(e){}
+    };
+    tryCapture(window);
+    try { tryCapture(window.top); } catch(e){}
+    try { tryCapture(window.parent); } catch(e){}
 
-        const capture = (w) => {
-            try {
-                w.addEventListener('beforeinstallprompt', e => {
-                    e.preventDefault();
-                    installPrompt = e;
-                });
-                w.addEventListener('appinstalled', () => {
-                    document.getElementById('wrap').style.display = 'none';
-                });
-            } catch(e){}
-        };
-        capture(window);
-        try { capture(window.top); } catch(e){}
-        try { capture(window.parent); } catch(e){}
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js', {scope:'/'}).catch(()=>{});
-            try { window.top.navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{}); } catch(e){}
-        }
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js', {scope:'/'}).catch(()=>{});
+        try { window.top.navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{}); } catch(e){}
     }
 
-    function doInstall() {
+    function toggle() {
         if (installPrompt) {
             installPrompt.prompt();
             installPrompt.userChoice.then(() => { installPrompt = null; });
@@ -499,7 +499,7 @@ def pwa_install_button():
         }
     }
     </script>
-    """, height=100)
+    """, height=130)
 
 
 def show_result_panel(text, engine_label):
