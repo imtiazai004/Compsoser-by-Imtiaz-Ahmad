@@ -17,11 +17,26 @@ except Exception:
     EASYOCR_AVAILABLE = False
 
 # ── Developer API Keys ────────────────────────────────────────────────────────
-# Loaded from .streamlit/secrets.toml locally, or Streamlit Cloud Secrets UI
-try:
-    DEVELOPER_KEYS = list(st.secrets["developer_keys"])
-except Exception:
-    DEVELOPER_KEYS = []  # no keys if secrets not configured
+# Works with: Streamlit Cloud, HF Spaces, local secrets.toml, env variable
+def _load_dev_keys():
+    # 1. st.secrets as list (Streamlit Cloud / local secrets.toml)
+    try:
+        raw = st.secrets["developer_keys"]
+        if isinstance(raw, (list, tuple)):
+            return [k for k in raw if k]
+        return json.loads(str(raw))
+    except Exception:
+        pass
+    # 2. Environment variable fallback (HF Spaces)
+    try:
+        raw = os.environ.get("DEVELOPER_KEYS", "")
+        if raw:
+            return json.loads(raw)
+    except Exception:
+        pass
+    return []
+
+DEVELOPER_KEYS = _load_dev_keys()
 
 GEMINI_MODELS = [
     "gemini-2.5-flash",
