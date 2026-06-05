@@ -715,22 +715,32 @@ col_left, col_right = st.columns([1, 1.55], gap="large")
 with col_left:
     # ── Upload ──────────────────────────────────────────────────────────────
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("**📁 Upload Image**")
 
-    uploaded = st.file_uploader(
-        "upload",
-        type=["png", "jpg", "jpeg", "bmp", "tiff", "tif"],
-        label_visibility="collapsed",
-    )
+    tab_upload, tab_camera = st.tabs(["📁 Upload File", "📸 Camera"])
 
-    if uploaded:
-        st.image(uploaded, use_container_width=True, caption=f"📎 {uploaded.name}")
+    with tab_upload:
+        uploaded = st.file_uploader(
+            "upload",
+            type=["png", "jpg", "jpeg", "bmp", "tiff", "tif"],
+            label_visibility="collapsed",
+        )
+
+    with tab_camera:
+        camera_shot = st.camera_input("Take a photo", label_visibility="collapsed")
+
+    # Use whichever source has an image
+    image_source = uploaded or camera_shot
+    image_name = uploaded.name if uploaded else "camera_capture.jpg"
+
+    if image_source:
+        st.image(image_source, use_container_width=True,
+                 caption=f"📎 {image_name}")
     else:
         st.markdown("""
         <div class="upload-hint">
             <div class="icon">📄</div>
-            <p><b>Click above to upload</b></p>
-            <p style="color:#3a3a6a;font-size:0.8rem;margin-top:6px;">
+            <p><b>Upload a file or take a photo</b></p>
+            <p style="color:#6366f1;font-size:0.8rem;margin-top:6px;">
             PNG · JPG · JPEG · BMP · TIFF
             </p>
         </div>
@@ -761,7 +771,7 @@ with col_left:
         "▶  Convert to Text",
         type="primary",
         use_container_width=True,
-        disabled=(not uploaded or (not use_gemini and not EASYOCR_AVAILABLE)),
+        disabled=(not image_source or (not use_gemini and not EASYOCR_AVAILABLE)),
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -769,22 +779,22 @@ with col_left:
 with col_right:
 
     # ── Step indicator ───────────────────────────────────────────────────────
-    s1 = "done" if uploaded else ("active" if not uploaded else "")
-    s2 = "active" if uploaded and not st.session_state.extracted_text else ("done" if st.session_state.extracted_text else "")
-    s3 = "done" if st.session_state.extracted_text else ("active" if uploaded else "")
-    div1 = "done" if uploaded else ""
+    s1 = "done" if image_source else ("active" if not image_source else "")
+    s2 = "active" if image_source and not st.session_state.extracted_text else ("done" if st.session_state.extracted_text else "")
+    s3 = "done" if st.session_state.extracted_text else ("active" if image_source else "")
+    div1 = "done" if image_source else ""
     div2 = "done" if st.session_state.extracted_text else ""
 
     st.markdown(f"""
     <div class="steps-row">
         <div class="step">
             <div class="step-num {s1}">1</div>
-            <span class="step-label {'active' if not uploaded else ''}">Upload Image</span>
+            <span class="step-label {'active' if not image_source else ''}">Upload / Capture</span>
         </div>
         <div class="step-divider {div1}"></div>
         <div class="step">
             <div class="step-num {s2}">2</div>
-            <span class="step-label {'active' if uploaded and not st.session_state.extracted_text else ''}">Select Language</span>
+            <span class="step-label {'active' if image_source and not st.session_state.extracted_text else ''}">Select Language</span>
         </div>
         <div class="step-divider {div2}"></div>
         <div class="step">
@@ -795,14 +805,14 @@ with col_right:
     """, unsafe_allow_html=True)
 
     # ── No image uploaded ────────────────────────────────────────────────────
-    if not uploaded:
+    if not image_source:
         st.session_state.use_easyocr_fallback = False
         st.session_state.extracted_text = ""
         st.markdown("""
         <div style="text-align:center;padding:80px 20px;">
             <div style="font-size:4rem;margin-bottom:16px;filter:grayscale(0.3);">🖼️</div>
-            <h3 style="color:#6366f1;margin:0 0 8px 0;font-weight:700;">No image uploaded yet</h3>
-            <p style="font-size:0.9rem;margin:0;color:#94a3b8;">Upload a scanned document on the left to get started.</p>
+            <h3 style="color:#6366f1;margin:0 0 8px 0;font-weight:700;">No image yet</h3>
+            <p style="font-size:0.9rem;margin:0;color:#94a3b8;">Upload a file or take a photo to get started.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -810,7 +820,7 @@ with col_right:
     elif st.session_state.use_easyocr_fallback:
         with st.spinner("Running EasyOCR (offline)..."):
             t0 = time.time()
-            text, err = run_easyocr(uploaded.read(), lang)
+            text, err = run_easyocr(image_source.read(), lang)
             elapsed = round(time.time() - t0, 2)
         if err:
             st.error(err)
@@ -825,12 +835,12 @@ with col_right:
 
     # ── Convert triggered ────────────────────────────────────────────────────
     elif convert_btn:
-        image_bytes = uploaded.read()
+        image_bytes = image_source.read()
 
         if use_gemini:
             with st.spinner("🤖 Gemini AI is reading your document..."):
                 t0 = time.time()
-                text, err = run_gemini(image_bytes, uploaded.name)
+                text, err = run_gemini(image_bytes, image_name)
                 elapsed = round(time.time() - t0, 2)
 
             if err == "ALL_KEYS_EXHAUSTED":
