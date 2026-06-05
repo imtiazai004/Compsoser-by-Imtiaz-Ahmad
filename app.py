@@ -390,25 +390,41 @@ def to_docx_bytes(text):
 def copy_button(text):
     safe = json.dumps(text)
     components.html(f"""
-    <button onclick="
-        navigator.clipboard.writeText({safe}).then(() => {{
-            this.innerText = '✅ Copied!';
-            this.style.background = '#dcfce7';
-            this.style.color = '#16a34a';
-            this.style.borderColor = '#86efac';
+    <style>
+    *{{margin:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif;}}
+    body{{background:transparent;overflow:hidden;}}
+    #cbtn{{
+        background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;
+        border-radius:8px;padding:8px 18px;font-size:13px;
+        cursor:pointer;font-weight:600;transition:all 0.2s;width:100%;
+    }}
+    #cbtn:hover{{background:#e0e7ff;}}
+    </style>
+    <button id="cbtn" onclick="doCopy()">📋 Copy Text</button>
+    <script>
+    const T = {safe};
+    function doCopy() {{
+        const btn = document.getElementById('cbtn');
+        const succeed = () => {{
+            btn.innerText = '✅ Copied!';
+            btn.style.cssText = 'background:#dcfce7;color:#16a34a;border:1px solid #86efac;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:600;width:100%;transition:all 0.2s;';
             setTimeout(() => {{
-                this.innerText = '📋 Copy Text';
-                this.style.background = '#eef2ff';
-                this.style.color = '#4f46e5';
-                this.style.borderColor = '#c7d2fe';
+                btn.innerText = '📋 Copy Text';
+                btn.style.cssText = 'background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:600;width:100%;transition:all 0.2s;';
             }}, 2000);
-        }});
-    " style="
-        background:#eef2ff; color:#4f46e5; border:1px solid #c7d2fe;
-        border-radius:8px; padding:7px 18px; font-size:13px;
-        cursor:pointer; font-weight:600; transition:all 0.2s;
-        font-family: Segoe UI, system-ui, sans-serif;
-    ">📋 Copy Text</button>
+        }};
+        if (navigator.clipboard && navigator.clipboard.writeText) {{
+            navigator.clipboard.writeText(T).then(succeed).catch(fallback);
+        }} else {{ fallback(); }}
+        function fallback() {{
+            const ta = document.createElement('textarea');
+            ta.value = T; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+            document.body.appendChild(ta); ta.focus(); ta.select();
+            try {{ document.execCommand('copy'); succeed(); }} catch(e) {{}}
+            document.body.removeChild(ta);
+        }}
+    }}
+    </script>
     """, height=42)
 
 
