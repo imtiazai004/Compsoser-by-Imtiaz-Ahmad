@@ -13,8 +13,10 @@ RUN python generate_icons.py
 
 COPY nginx.conf /etc/nginx/nginx.conf
 
-RUN chmod +x start.sh
-
 EXPOSE 7860
 
-CMD ["./start.sh"]
+CMD bash -c "nginx && streamlit run app.py \
+    --server.port=8501 \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --browser.gatherUsageStats=false"
