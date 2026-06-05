@@ -3,8 +3,7 @@ title: Composer AI Document Scanner
 emoji: 📄
 colorFrom: indigo
 colorTo: purple
-sdk: streamlit
-sdk_version: 1.36.0
+sdk: docker
 app_file: app.py
 pinned: true
 ---
